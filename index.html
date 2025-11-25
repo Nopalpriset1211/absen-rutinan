@@ -91,6 +91,8 @@ a:hover{text-decoration:underline;}
 <!-- Halaman Admin Panel -->
 <div class="container" id="adminPanel" style="display:none;">
 <h3>Rekap Absensi</h3>
+<button class="link-btn" onclick="exportExcel()">Export Excel</button>
+<br><br>
 <table width="100%" id="rekapTable">
 <thead>
 <tr><th>ID</th><th>Nama</th><th>Waktu</th><th>Status</th><th>Alasan</th><th>Aksi</th></tr>
@@ -147,7 +149,7 @@ function toggleAlasanInput(){
     document.getElementById("alasanWrapper").style.display = (status==="Izin") ? "block" : "none";
 }
 
-// ======= ABSENSI (1 ID 1x PER HARI + BATAS 19:00 WIB) =======
+// ======= ABSENSI (1 ID 1x PER HARI + BATAS WAKTU) =======
 function submitAbsensi(){
     const id = document.getElementById("userId").value.trim();
     const pesan = document.getElementById("pesan");
@@ -166,13 +168,17 @@ function submitAbsensi(){
         return;
     }
 
-    if(jam < 12 || (jam === 19 && menit > 0) || jam > 19){
+    // cek batas waktu (12:00 - 19:00)
+    const nowMinutes = jam * 60 + menit;
+    const start = 12 * 60; 
+    const end = 19 * 60;
+    if(nowMinutes < start || nowMinutes > end){
         pesan.style.color="red"; 
         pesan.innerText="Absensi hanya dapat dilakukan pukul 12:00 - 19:00 WIB!";
         return;
     }
 
-    // ===== CEK SUDAH ABSEN HARI INI =====
+    // CEK SUDAH ABSEN HARI INI
     db.ref("absensi").once("value", snapshot => {
         let sudah = false;
 
@@ -196,9 +202,7 @@ function submitAbsensi(){
             return;
         }
 
-        // Lanjut simpan data
-        let statusFinal = status;
-
+        // SIMPAN
         if(status === "Izin"){
             const alasan = document.getElementById("alasanIzin").value.trim();
             if(!alasan){
@@ -206,9 +210,9 @@ function submitAbsensi(){
                 pesan.innerText="Alasan izin wajib diisi!";
                 return;
             }
-            simpanData(id, registeredUsers[id], now.toLocaleString(), statusFinal, alasan);
+            simpanData(id, registeredUsers[id], now.toLocaleString(), status, alasan);
         } else {
-            simpanData(id, registeredUsers[id], now.toLocaleString(), statusFinal, "-");
+            simpanData(id, registeredUsers[id], now.toLocaleString(), status, "-");
         }
     });
 }
@@ -272,6 +276,32 @@ function loadRekap(){
 }
 function hapusData(key){
     db.ref('absensi/'+key).remove().then(()=>loadRekap());
+}
+
+// ======= EXPORT EXCEL (OTOMATIS NAMA FILE TANGGAL) =======
+function exportExcel(){
+    db.ref('absensi').once('value', snapshot => {
+
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const fileName = `rekap_rutinan_${yyyy}-${mm}-${dd}.xlsx`;
+
+        let data = "ID,Nama,Waktu,Status,Alasan\n";
+
+        snapshot.forEach(snap => {
+            const item = snap.val();
+            data += `${item.id},${item.nama},${item.waktu},${item.status},${item.alasan}\n`;
+        });
+
+        const blob = new Blob([data], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+    });
 }
 </script>
 
