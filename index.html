@@ -7,7 +7,7 @@
 
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial;
             background: #f4f6fa;
             margin: 0;
             padding: 0;
@@ -20,31 +20,37 @@
             text-align: center;
             font-size: 22px;
             font-weight: bold;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-        }
-
-        #deleteAllBtn {
-            padding: 8px 15px;
-            background: #d9534f;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            display: none;
         }
 
         .container {
+            max-width: 480px;
+            margin: 30px auto;
             background: white;
-            max-width: 900px;
-            margin: 20px auto;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 25px;
+            border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
+
+        input, button, select {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            background: #2d6cdf;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { background: #1f54b8; }
+
+        .link-btn { background: #555; }
+        .back-btn { background: #777; margin-top: 8px; }
 
         table {
             width: 100%;
@@ -53,117 +59,289 @@
         }
 
         th, td {
-            border: 1px solid #ccc;
             padding: 8px;
-            text-align: center;
-        }
-
-        th {
-            background: #2d6cdf;
-            color: white;
+            border-bottom: 1px solid #ddd;
         }
     </style>
-</head>
 
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+</head>
 <body>
 
-<header>
-    Absensi Rutinan Paskibra
-    <button id="deleteAllBtn">Hapus Semua Data</button>
-</header>
+<header>Absensi Rutinan</header>
 
-<div class="container">
-    <h3>Data Rekap Absensi</h3>
+<!-- ==========================
+       HALAMAN ABSEN
+=========================== -->
+<div class="container" id="absenPage">
+    <h3>Form Absensi</h3>
 
-    <table id="dataTable">
-        <thead>
-            <tr>
-                <th>Nama</th>
-                <th>ID</th>
-                <th>Waktu</th>
-                <th>Keterangan</th>
-            </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-    </table>
+    <p style="color:#555;font-size:14px;">
+        <b>Informasi:</b> Absensi hanya bisa dilakukan
+        <b>Selasa & Sabtu</b>, pukul <b>12:00 - 19:00 WIB</b>.
+    </p>
+
+    <label>Nomor ID</label>
+    <input type="text" id="userId" placeholder="Masukkan ID Anda...">
+
+    <label>Keterangan</label>
+    <select id="statusAbsen" onchange="toggleAlasanInput()">
+        <option value="Hadir">Hadir</option>
+        <option value="Izin">Izin</option>
+    </select>
+
+    <div id="alasanWrapper" style="display:none;">
+        <label>Alasan Izin</label>
+        <input type="text" id="alasanIzin" placeholder="Tuliskan alasan izin...">
+    </div>
+
+    <button onclick="submitAbsensi()">Apply Absen</button>
+    <button class="link-btn" onclick="openAdmin()">Login Admin</button>
+
+    <p id="pesan" style="color:red;font-weight:bold;"></p>
 </div>
 
-<!-- Firebase -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+<!-- ==========================
+       HALAMAN LOGIN ADMIN
+=========================== -->
+<div class="container" id="adminLogin" style="display:none;">
+    <h3>Login Admin</h3>
 
-    // ================================================
-    // 🔥 GANTI CONFIG FIREBASE KAMU DI SINI!
-    // ================================================
+    <label>Password</label>
+    <input type="password" id="adminPass">
+
+    <button onclick="loginAdmin()">Login</button>
+    <button class="back-btn" onclick="backToHome()">Kembali</button>
+
+    <p id="adminLoginMsg" style="color:red;"></p>
+</div>
+
+<!-- ==========================
+       HALAMAN ADMIN PANEL
+=========================== -->
+<div class="container" id="adminPanel" style="display:none;">
+    <h3>Rekap Absensi</h3>
+
+    <table id="rekapTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nama</th>
+                <th>Waktu</th>
+                <th>Status</th>
+                <th>Alasan</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody id="rekapBody"></tbody>
+    </table>
+
+    <button class="back-btn" onclick="logoutAdmin()">Keluar Admin</button>
+</div>
+
+<script>
+    /* ==========================
+       Firebase Config
+    =========================== */
     const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_AUTH_DOMAIN",
-        databaseURL: "YOUR_DB_URL",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_BUCKET",
-        messagingSenderId: "YOUR_SENDER",
-        appId: "YOUR_APP_ID"
+        apiKey: "AIzaSyCCheqFeLe-BS5ZZiyXLfmRVnyoDbmbMiM",
+        authDomain: "absen-74c40.firebaseapp.com",
+        databaseURL: "https://absen-74c40-default-rtdb.firebaseio.com",
+        projectId: "absen-74c40",
+        storageBucket: "absen-74c40.appspot.com",
+        messagingSenderId: "962064220204",
+        appId: "1:962064220204:web:8111b69ce31a5994f51189"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-    const absensiRef = ref(db, "absensi_rutinan");
+    /* ==========================
+       DATA USER TERDAFTAR
+    =========================== */
+    const registeredUsers = {
+        "200409":"Zendi Prianto",
+        "110810":"Ramadhan",
+        "111109":"M. Hafidz Atallah",
+        "070909":"Fardan Rakhmansyah",
+        "220209":"M. Ali Subechan",
+        "120108":"M. Khafidz Affandy",
+        "280508":"Nanda Alfares",
+        "210707":"Irwandy Yusuf",
+        "300310":"M. Sahrul Mubarok",
+        "270810":"Bening Putriyanah",
+        "210809":"Elisa Agustina",
+        "240310":"Assyifa Nur Khasanah",
+        "231109":"Vanesa Gresia Putri",
+        "060209":"Asti Dwi Febriani",
+        "051209":"Rahmatul Salimah",
+        "140210":"Izzah Wardatil Millah",
+        "110310":"Nur Laeli Rahma Tullah",
+        "110210":"Ainum Mahmudah",
+        "180210":"Dian Fakhrotun Nisa",
+        "140510":"Uyun Dwi Risquna",
+        "070110":"Ratih Rus Sukmah Watih",
+        "070310":"Fannes Aisha Putri",
+        "061108":"Naufal Rehan"
+    };
 
-    // ADMIN ID
-    const adminId = "admin123";
-
-    // cek login
-    if (!localStorage.getItem("userId")) {
-        localStorage.setItem("userId", "admin123"); // simpan admin sementara
+    /* ==========================
+       Toggle Input Alasan
+    =========================== */
+    function toggleAlasanInput() {
+        const status = document.getElementById("statusAbsen").value;
+        document.getElementById("alasanWrapper").style.display =
+            status === "Izin" ? "block" : "none";
     }
 
-    const currentId = localStorage.getItem("userId");
+    /* ==========================
+       Submit Absensi
+    =========================== */
+    function submitAbsensi() {
+        const id = document.getElementById("userId").value.trim();
+        const pesan = document.getElementById("pesan");
+        const status = document.getElementById("statusAbsen").value;
 
-    // tampilkan tombol delete jika admin
-    if (currentId === adminId) {
-        document.getElementById("deleteAllBtn").style.display = "inline-block";
-    }
+        if (!id) {
+            pesan.innerText = "ID tidak boleh kosong!";
+            return;
+        }
 
-    // ================================================
-    // MENAMPILKAN DATA DARI FIREBASE KE TABEL
-    // ================================================
-    const tableBody = document.getElementById("tableBody");
+        if (!registeredUsers[id]) {
+            pesan.innerText = "ID tidak terdaftar!";
+            return;
+        }
 
-    onValue(absensiRef, (snapshot) => {
-        tableBody.innerHTML = ""; // hapus isi lama
+        const now = new Date();
+        const hari = now.getDay();
+        const jam = now.getHours();
+        const menit = now.getMinutes();
 
-        snapshot.forEach(child => {
-            const item = child.val();
-            const tr = document.createElement("tr");
+        if (!(hari === 2 || hari === 6)) {
+            pesan.innerText = "Absensi hanya hari Selasa & Sabtu!";
+            return;
+        }
 
-            tr.innerHTML = `
-                <td>${item.nama}</td>
-                <td>${item.id}</td>
-                <td>${item.waktu}</td>
-                <td>${item.keterangan}</td>
-            `;
+        if (jam < 12 || jam >= 19) {
+            pesan.innerText = "Absensi hanya pukul 12:00 - 19:00!";
+            return;
+        }
 
-            tableBody.appendChild(tr);
-        });
-    });
+        // Cek sudah absen hari ini
+        db.ref("absensi").once("value", snapshot => {
+            let sudah = false;
 
-    // ================================================
-    // FITUR HAPUS SEMUA DATA
-    // ================================================
-    document.getElementById("deleteAllBtn").addEventListener("click", () => {
-        const setuju = confirm("YAKIN ingin menghapus SEMUA data absensi?");
-        if (!setuju) return;
+            snapshot.forEach(snap => {
+                const item = snap.val();
+                const t = new Date(item.waktu);
 
-        remove(absensiRef)
-            .then(() => {
-                alert("Semua data berhasil dihapus!");
-            })
-            .catch(err => {
-                alert("Gagal menghapus: " + err);
+                const samaHari =
+                    t.getDate() === now.getDate() &&
+                    t.getMonth() === now.getMonth() &&
+                    t.getFullYear() === now.getFullYear();
+
+                if (item.id === id && samaHari) sudah = true;
             });
-    });
+
+            if (sudah) {
+                pesan.innerText = "Anda sudah absen hari ini!";
+                return;
+            }
+
+            if (status === "Izin") {
+                const alasan = document.getElementById("alasanIzin").value.trim();
+                if (!alasan) {
+                    pesan.innerText = "Alasan izin wajib diisi!";
+                    return;
+                }
+                simpanData(id, registeredUsers[id], now.toLocaleString(), status, alasan);
+            } else {
+                simpanData(id, registeredUsers[id], now.toLocaleString(), "Hadir", "-");
+            }
+        });
+    }
+
+    function simpanData(id, nama, waktu, status, alasan) {
+        const pesan = document.getElementById("pesan");
+
+        db.ref("absensi").push({
+            id, nama, waktu, status, alasan
+        }, err => {
+            if (err) {
+                pesan.innerText = "Gagal absen!";
+            } else {
+                pesan.style.color = "green";
+                pesan.innerText = "Absensi berhasil!";
+                document.getElementById("userId").value = "";
+                document.getElementById("alasanIzin").value = "";
+            }
+        });
+    }
+
+    /* ==========================
+       ADMIN LOGIN
+    =========================== */
+    function openAdmin() {
+        document.getElementById("absenPage").style.display = "none";
+        document.getElementById("adminLogin").style.display = "block";
+    }
+
+    function backToHome() {
+        document.getElementById("adminLogin").style.display = "none";
+        document.getElementById("absenPage").style.display = "block";
+    }
+
+    function loginAdmin() {
+        const pass = document.getElementById("adminPass").value;
+
+        if (pass === "fourl") {
+            document.getElementById("adminLogin").style.display = "none";
+            document.getElementById("adminPanel").style.display = "block";
+            loadRekap();
+        } else {
+            document.getElementById("adminLoginMsg").innerText = "Password salah!";
+        }
+    }
+
+    function logoutAdmin() {
+        document.getElementById("adminPanel").style.display = "none";
+        document.getElementById("absenPage").style.display = "block";
+    }
+
+    /* ==========================
+       LOAD REKAP ABSEN
+    =========================== */
+    function loadRekap() {
+        const body = document.getElementById("rekapBody");
+        body.innerHTML = "";
+
+        db.ref("absensi").once("value", snapshot => {
+            snapshot.forEach(snap => {
+                const item = snap.val();
+                const key = snap.key;
+
+                body.innerHTML += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.nama}</td>
+                        <td>${item.waktu}</td>
+                        <td>${item.status}</td>
+                        <td>${item.alasan}</td>
+                        <td>
+                            <button onclick="hapusData('${key}')">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+    }
+
+    function hapusData(key) {
+        db.ref("absensi/" + key).remove().then(() => loadRekap());
+    }
 
 </script>
 
