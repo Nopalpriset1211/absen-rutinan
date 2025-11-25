@@ -140,7 +140,8 @@ const registeredUsers = {
     "070310":"Fannes Aisha Putri",
     "061108":"Naufal Rehan"
 };
-const batasJam = 18; // jam akhir Hadir
+
+const batasJam = 18;
 
 // ======= Toggle input alasan =======
 function toggleAlasanInput(){
@@ -148,7 +149,7 @@ function toggleAlasanInput(){
     document.getElementById("alasanWrapper").style.display = (status==="Izin") ? "block" : "none";
 }
 
-// ======= ABSENSI MANUAL =======
+// ======= ABSENSI =======
 function submitAbsensi(){
     const id = document.getElementById("userId").value.trim();
     const pesan = document.getElementById("pesan");
@@ -160,22 +161,27 @@ function submitAbsensi(){
     const now = new Date();
     const hari = now.getDay();
     const jam = now.getHours();
+    const menit = now.getMinutes();
 
     if(!(hari===2 || hari===6)){
-        pesan.style.color="red"; pesan.innerText="Absensi hanya bisa dilakukan hari Selasa & Sabtu!"; return;
-    }
-    if(jam<12 || jam>18){
-        pesan.style.color="red"; pesan.innerText="Absensi hanya bisa dilakukan pukul 12:00 - 18:00 WIB!"; return;
+        pesan.style.color="red"; pesan.innerText="Absensi hanya hari Selasa & Sabtu!"; return;
     }
 
-    let statusFinal = (status==="Hadir") ? (jam<=batasJam ? "Hadir":"Tanpa Keterangan") : "Izin";
+    // JAM VALIDASI BARU
+    if (jam < 12 || (jam === 18 && menit > 0) || jam > 18) {
+        pesan.style.color = "red";
+        pesan.innerText = "Absensi hanya bisa dilakukan sampai pukul 18:00 WIB!";
+        return;
+    }
+
+    let statusFinal = (status==="Hadir") ? (jam < 18 || (jam===18 && menit===0) ? "Hadir" : "Tanpa Keterangan") : "Izin";
 
     if(status==="Izin"){
         const alasan = document.getElementById("alasanIzin").value.trim();
-        if(!alasan){ 
+        if(!alasan){
             pesan.style.color="red"; 
-            pesan.innerText="Wajib menuliskan alasan izin!"; 
-            return; 
+            pesan.innerText="Wajib menuliskan alasan izin!";
+            return;
         }
         const data = {id:id, nama:registeredUsers[id], waktu:now.toLocaleString(), status:statusFinal, alasan:alasan};
         db.ref('absensi').push(data, err=>{
@@ -190,20 +196,31 @@ function submitAbsensi(){
         const data = {id:id, nama:registeredUsers[id], waktu:now.toLocaleString(), status:statusFinal};
         db.ref('absensi').push(data, err=>{
             if(err){pesan.style.color="red"; pesan.innerText="Gagal absen";}
-            else{pesan.style.color="green"; pesan.innerText="Absensi berhasil!"; document.getElementById("userId").value="";}
+            else{
+                pesan.style.color="green"; pesan.innerText="Absensi berhasil!";
+                document.getElementById("userId").value="";
+            }
         });
     }
 }
 
-// ======= ADMIN LOGIN =======
+// ======= ADMIN =======
 function openAdmin(){document.getElementById("absenPage").style.display="none"; document.getElementById("adminLogin").style.display="block";}
 function backToHome(){document.getElementById("adminLogin").style.display="none"; document.getElementById("absenPage").style.display="block";}
 function loginAdmin(){
     const pass = document.getElementById("adminPass").value;
-    if(pass==="fourl"){document.getElementById("adminLogin").style.display="none";document.getElementById("adminPanel").style.display="block"; loadRekap();}
-    else document.getElementById("adminLoginMsg").innerText="Password salah!";
+    if(pass==="fourl"){
+        document.getElementById("adminLogin").style.display="none";
+        document.getElementById("adminPanel").style.display="block";
+        loadRekap();
+    } else {
+        document.getElementById("adminLoginMsg").innerText="Password salah!";
+    }
 }
-function logoutAdmin(){document.getElementById("adminPanel").style.display="none"; document.getElementById("absenPage").style.display="block";}
+function logoutAdmin(){
+    document.getElementById("adminPanel").style.display="none"; 
+    document.getElementById("absenPage").style.display="block";
+}
 
 // ======= REKAP =======
 function loadRekap(){
@@ -225,9 +242,11 @@ function loadRekap(){
         });
     });
 }
-function hapusData(key){db.ref('absensi/'+key).remove().then(()=>loadRekap());}
+function hapusData(key){
+    db.ref('absensi/'+key).remove().then(()=>loadRekap());
+}
 
-// ======= AUTO TANPA KETERANGAN DI FRONTEND (TIAP 1 MENIT) =======
+// ======= AUTO TANPA KETERANGAN =======
 function autoAbsenTanpaKeterangan(){
     const now = new Date();
     const hari = now.getDay();
@@ -253,18 +272,13 @@ function autoAbsenTanpaKeterangan(){
                         waktu: now.toLocaleString(),
                         status: "Tanpa Keterangan"
                     });
-                    console.log("Auto absen Tanpa Keterangan:", id);
                 }
             }
         });
     }
 }
-setInterval(autoAbsenTanpaKeterangan, 60*1000); // cek tiap 1 menit
+setInterval(autoAbsenTanpaKeterangan, 60*1000);
 </script>
 
 </body>
 </html>
-
-
-
-
