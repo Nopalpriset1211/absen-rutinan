@@ -26,9 +26,9 @@
             gap: 15px;
         }
 
-        #exportExcelBtn {
+        #deleteAllBtn {
             padding: 8px 15px;
-            background: #28a745;
+            background: #d9534f;
             color: white;
             border: none;
             border-radius: 6px;
@@ -69,7 +69,7 @@
 
 <header>
     Absensi Rutinan Paskibra
-    <button id="exportExcelBtn">Export Excel</button>
+    <button id="deleteAllBtn">Hapus Semua Data</button>
 </header>
 
 <div class="container">
@@ -84,90 +84,86 @@
                 <th>Keterangan</th>
             </tr>
         </thead>
-        <tbody id="tableBody">
-            <!-- Data dari Firebase masuk di sini -->
-        </tbody>
+        <tbody id="tableBody"></tbody>
     </table>
 </div>
 
-<script>
-/* ============================================================
-   SIMULASI LOGIN — ganti sesuai login asli kamu
-   ============================================================ */
+<!-- Firebase -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// Set admin ID (boleh kamu ganti)
-const adminId = "admin123";
+    // ================================================
+    // 🔥 GANTI CONFIG FIREBASE KAMU DI SINI!
+    // ================================================
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
+        databaseURL: "YOUR_DB_URL",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_BUCKET",
+        messagingSenderId: "YOUR_SENDER",
+        appId: "YOUR_APP_ID"
+    };
 
-// SIMULASI: anggap admin sedang login (hapus jika sudah punya login asli)
-if (!localStorage.getItem("userId")) {
-    localStorage.setItem("userId", "fourl");
-}
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-/* ============================================================
-   TAMPILKAN TOMBOL EXPORT JIKA ADMIN
-   ============================================================ */
+    const absensiRef = ref(db, "absensi_rutinan");
 
-const currentId = localStorage.getItem("userId");
+    // ADMIN ID
+    const adminId = "admin123";
 
-if (currentId === adminId) {
-    document.getElementById("exportExcelBtn").style.display = "inline-block";
-}
+    // cek login
+    if (!localStorage.getItem("userId")) {
+        localStorage.setItem("userId", "admin123"); // simpan admin sementara
+    }
 
-/* ============================================================
-   FITUR EXPORT EXCEL (CSV)
-   ============================================================ */
+    const currentId = localStorage.getItem("userId");
 
-document.getElementById("exportExcelBtn").addEventListener("click", function () {
-    const table = document.getElementById("dataTable"); 
-    let csvContent = "";
+    // tampilkan tombol delete jika admin
+    if (currentId === adminId) {
+        document.getElementById("deleteAllBtn").style.display = "inline-block";
+    }
 
-    // Header
-    const headers = table.querySelectorAll("thead tr th");
-    const headerRow = [];
-    headers.forEach(h => headerRow.push(h.innerText));
-    csvContent += headerRow.join(",") + "\n";
+    // ================================================
+    // MENAMPILKAN DATA DARI FIREBASE KE TABEL
+    // ================================================
+    const tableBody = document.getElementById("tableBody");
 
-    // Data
-    const rows = table.querySelectorAll("tbody tr");
-    rows.forEach(row => {
-        const cols = row.querySelectorAll("td");
-        const rowData = [];
-        cols.forEach(col => rowData.push(col.innerText));
-        csvContent += rowData.join(",") + "\n";
+    onValue(absensiRef, (snapshot) => {
+        tableBody.innerHTML = ""; // hapus isi lama
+
+        snapshot.forEach(child => {
+            const item = child.val();
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${item.nama}</td>
+                <td>${item.id}</td>
+                <td>${item.waktu}</td>
+                <td>${item.keterangan}</td>
+            `;
+
+            tableBody.appendChild(tr);
+        });
     });
 
-    // Nama file otomatis
-    const today = new Date().toISOString().split("T")[0];
-    const fileName = `rekap_rutinan_${today}.csv`;
+    // ================================================
+    // FITUR HAPUS SEMUA DATA
+    // ================================================
+    document.getElementById("deleteAllBtn").addEventListener("click", () => {
+        const setuju = confirm("YAKIN ingin menghapus SEMUA data absensi?");
+        if (!setuju) return;
 
-    // Download
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-    link.click();
-});
-
-/* ============================================================
-   CONTOH DUMMY DATA (hapus ketika memakai Firebase asli)
-   ============================================================ */
-
-const exampleData = [
-    { nama: "Rafi", id: "001", waktu: "17:20", ket: "Hadir" },
-    { nama: "Reno", id: "002", waktu: "17:25", ket: "Hadir" },
-];
-
-const tbody = document.getElementById("tableBody");
-exampleData.forEach(x => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-        <td>${x.nama}</td>
-        <td>${x.id}</td>
-        <td>${x.waktu}</td>
-        <td>${x.ket}</td>
-    `;
-    tbody.appendChild(tr);
-});
+        remove(absensiRef)
+            .then(() => {
+                alert("Semua data berhasil dihapus!");
+            })
+            .catch(err => {
+                alert("Gagal menghapus: " + err);
+            });
+    });
 
 </script>
 
