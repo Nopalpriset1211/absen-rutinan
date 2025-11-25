@@ -1,3 +1,9 @@
+hapus logonya saja
+ChatGPT bilang:
+Oke! Kita bisa hapus semua bagian logo dari kode HTML dan CSS sehingga header dan form tanpa logo, tapi fitur absensi tetap sama.
+
+Berikut versi bersihnya tanpa logo:
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -14,11 +20,6 @@ header{
     font-size:22px;
     font-weight:bold;
 }
-header img{
-    height:40px;
-    vertical-align:middle;
-    margin-right:10px;
-}
 .container{
     max-width:480px;
     margin:30px auto;
@@ -26,11 +27,6 @@ header img{
     padding:25px;
     border-radius:12px;
     box-shadow:0 4px 10px rgba(0,0,0,0.1);
-}
-.container img.logo-center{
-    display:block;
-    margin:0 auto 15px;
-    height:60px;
 }
 input, button, select{
     width:100%;
@@ -61,14 +57,10 @@ a:hover{text-decoration:underline;}
 </head>
 <body>
 
-<header>
-  <img src="img/logo.png" alt="Logo Paskibra">
-  Absensi Rutinan
-</header>
+<header>Absensi Online</header>
 
 <!-- Halaman Absen -->
 <div class="container" id="absenPage">
-  <img src="img/logo.png" alt="Logo Paskibra" class="logo-center">
   <h3>Form Absensi</h3>
   <p style="color:#555;font-size:14px;">
     <b>Informasi:</b> Absensi hanya bisa dilakukan <b>hari Selasa & Sabtu</b>, pukul <b>12:00 WIB sampai 18:00 WIB</b>.
@@ -133,8 +125,7 @@ const registeredUsers = {
     "101":"Andi Saputra",
     "102":"Budi Pratama",
     "103":"Citra Dewi",
-    "104":"Dina Permana",
-    "105":"Padil yayasan"
+    "104":"Dina Permana"
 };
 const batasJam = 18; // jam akhir Hadir
 
@@ -260,5 +251,3 @@ setInterval(autoAbsenTanpaKeterangan, 60*1000); // cek tiap 1 menit
 
 </body>
 </html>
-
-
